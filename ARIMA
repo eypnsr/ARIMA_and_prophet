@@ -1,0 +1,183 @@
+#ARIMA with 3rd difference!
+import pandas as pd
+import statsmodels.api as sm
+import matplotlib.pyplot as plt
+import statsmodels.tsa.api as ts
+# Veriyi oku
+data = pd.read_excel('Datapathway!') #change the pathway
+
+data['country'] = pd.Categorical(data['country'])
+data['year'] = pd.to_datetime(data['year'], format="%Y")
+
+# Dependent variable and target year!
+target_year = 2035  
+target_variable = 'efp'  
+
+# ARIMA model for each country (including differences)
+unique_countries = data['country'].unique()
+for country in unique_countries:
+    country_data = data[data['country'] == country]
+    target_variable_data = country_data[['year', target_variable]]
+    target_variable_data = target_variable_data.set_index('year')
+
+    adf_result_original = ts.adfuller(target_variable_data[target_variable], autolag='AIC')
+
+    if adf_result_original[1] < 0.10:
+        # Original data is already stationary
+        print(f"{country} data (Original) is already stationary.")
+
+        order_original = (5, 1, 0)  #in paranthesis (Autoregressive terms, differences needed for stationary, lagged forecast errors in prediction equation)
+        model_original = sm.tsa.ARIMA(target_variable_data, order=order_original)
+        results_original = model_original.fit()
+
+        forecast_years_original = pd.date_range(start=target_variable_data.index[-1],
+                                                periods=(target_year - target_variable_data.index[-1].year), freq='A')
+        forecast_original = results_original.get_forecast(steps=len(forecast_years_original))
+        forecast_mean_original = forecast_original.predicted_mean
+
+        print(f"{country} - Future Predictions (Original):")
+        print(forecast_mean_original)
+
+        plt.figure(figsize=(12, 6))  #plots includes upper and lower limits (confident area)
+        plt.plot(target_variable_data.index, target_variable_data, label='Actual Values', color='blue')
+        plt.plot(forecast_years_original, forecast_mean_original, label='Forecast Values (Original)', color='red')
+
+        forecast_std_original = forecast_original.se_mean
+        upper_bound_original = forecast_mean_original + 1.96 * forecast_std_original
+        lower_bound_original = forecast_mean_original - 1.96 * forecast_std_original
+
+        plt.fill_between(forecast_years_original, lower_bound_original, upper_bound_original, color='pink', alpha=0.3,
+                         label='Prediction Confidence Interval (Original)')
+
+        plt.title(f'Country: {country} - {target_variable} Predictions (Original)')
+        plt.xlabel('Year')
+        plt.ylabel(target_variable)
+        plt.legend()
+        plt.grid(True)
+        plt.show()
+    else: #if not stationary!
+        print(f"{country} data (Original) is not stationary. Differencing...")
+
+        adf_result_diff1 = ts.adfuller(target_variable_data.diff().dropna()[target_variable], autolag='AIC')
+
+        if adf_result_diff1[1] < 0.10:
+            # First difference makes the data stationary
+            print(f"{country} data became stationary after the first difference.")
+
+            order_diff1 = (5, 1, 0)
+            model_diff1 = sm.tsa.ARIMA(target_variable_data.diff().dropna(), order=order_diff1)
+            results_diff1 = model_diff1.fit()
+
+            forecast_years_diff1 = pd.date_range(start=target_variable_data.diff().dropna().index[-1],
+                                                 periods=(target_year - target_variable_data.diff().dropna().index[-1].year),
+                                                 freq='A')
+            forecast_diff1 = results_diff1.get_forecast(steps=len(forecast_years_diff1))
+            forecast_mean_diff1 = forecast_diff1.predicted_mean
+
+            print(f"{country} - Future Predictions (1. Diff):")
+            print(forecast_mean_diff1)
+
+            plt.figure(figsize=(12, 6))
+            plt.plot(target_variable_data.diff().dropna().index, target_variable_data.diff().dropna(),
+                     label='Actual Values (1. Diff)', color='blue')
+            plt.plot(forecast_years_diff1, forecast_mean_diff1, label='Forecast Values (1. Diff)', color='red')
+
+            forecast_std_diff1 = forecast_diff1.se_mean
+            upper_bound_diff1 = forecast_mean_diff1 + 1.96 * forecast_std_diff1
+            lower_bound_diff1 = forecast_mean_diff1 - 1.96 * forecast_std_diff1
+
+            plt.fill_between(forecast_years_diff1, lower_bound_diff1, upper_bound_diff1, color='pink', alpha=0.3,
+                             label='Prediction Confidence Interval (1. Diff)')
+
+            plt.title(f'Country: {country} - {target_variable} Predictions (1. Diff)')
+            plt.xlabel('Year')
+            plt.ylabel(target_variable)
+            plt.legend()
+            plt.grid(True)
+            plt.show()
+        else:
+            print(f"{country} data after the first difference is still not stationary. Taking the second difference...")
+
+            adf_result_diff2 = ts.adfuller(target_variable_data.diff().diff().dropna()[target_variable], autolag='AIC')
+
+            if adf_result_diff2[1] < 0.10:
+                # Second difference makes the data stationary
+                print(f"{country} data became stationary after the second difference.")
+
+                order_diff2 = (5, 1, 0) #change the value for differences
+                model_diff2 = sm.tsa.ARIMA(target_variable_data.diff().diff().dropna(), order=order_diff2)
+                results_diff2 = model_diff2.fit()
+
+                forecast_years_diff2 = pd.date_range(
+                    start=target_variable_data.diff().diff().dropna().index[-1],
+                    periods=(target_year - target_variable_data.diff().diff().dropna().index[-1].year),
+                    freq='A')
+                forecast_diff2 = results_diff2.get_forecast(steps=len(forecast_years_diff2))
+                forecast_mean_diff2 = forecast_diff2.predicted_mean
+
+                print(f"{country} - Future Predictions (2. Diff):")
+                print(forecast_mean_diff2)
+
+                plt.figure(figsize=(12, 6))
+                plt.plot(target_variable_data.diff().diff().dropna().index, target_variable_data.diff().diff().dropna(),
+                         label='Actual Values (2. Diff)', color='blue')
+                plt.plot(forecast_years_diff2, forecast_mean_diff2, label='Forecast Values (2. Diff)', color='red')
+
+                forecast_std_diff2 = forecast_diff2.se_mean
+                upper_bound_diff2 = forecast_mean_diff2 + 1.96 * forecast_std_diff2
+                lower_bound_diff2 = forecast_mean_diff2 - 1.96 * forecast_std_diff2
+
+                plt.fill_between(forecast_years_diff2, lower_bound_diff2, upper_bound_diff2, color='pink', alpha=0.3,
+                                 label='Prediction Confidence Interval (2. Diff)')
+
+                plt.title(f'Country: {country} - {target_variable} Predictions (2. Diff)')
+                plt.xlabel('Year')
+                plt.ylabel(target_variable)
+                plt.legend()
+                plt.grid(True)
+                plt.show()
+            else:
+                print(f"{country} data after the second difference is still not stationary. Taking the third difference...")
+
+                adf_result_diff3 = ts.adfuller(target_variable_data.diff().diff().diff().dropna()[target_variable],
+                                               autolag='AIC')
+
+                if adf_result_diff3[1] < 0.10:
+                    # Third difference makes the data stationary
+                    print(f"{country} data became stationary after the third difference.")
+
+                    order_diff3 = (5, 1, 0)
+                    model_diff3 = sm.tsa.ARIMA(target_variable_data.diff().diff().diff().dropna(), order=order_diff3)
+                    results_diff3 = model_diff3.fit()
+
+                    forecast_years_diff3 = pd.date_range(
+                        start=target_variable_data.diff().diff().diff().dropna().index[-1],
+                        periods=(target_year - target_variable_data.diff().diff().diff().dropna().index[-1].year),
+                        freq='A')
+                    forecast_diff3 = results_diff3.get_forecast(steps=len(forecast_years_diff3))
+                    forecast_mean_diff3 = forecast_diff3.predicted_mean
+
+                    print(f"{country} - Future Predictions (3. Diff):")
+                    print(forecast_mean_diff3)
+
+                    plt.figure(figsize=(12, 6))
+                    plt.plot(target_variable_data.diff().diff().diff().dropna().index,
+                             target_variable_data.diff().diff().diff().dropna(),
+                             label='Actual Values (3. Diff)', color='blue')
+                    plt.plot(forecast_years_diff3, forecast_mean_diff3, label='Forecast Values (3. Diff)', color='red')
+
+                    forecast_std_diff3 = forecast_diff3.se_mean
+                    upper_bound_diff3 = forecast_mean_diff3 + 1.96 * forecast_std_diff3
+                    lower_bound_diff3 = forecast_mean_diff3 - 1.96 * forecast_std_diff3
+
+                    plt.fill_between(forecast_years_diff3, lower_bound_diff3, upper_bound_diff3, color='pink', alpha=0.3,
+                                     label='Prediction Confidence Interval (3. Diff)')
+
+                    plt.title(f'Country: {country} - {target_variable} Predictions (3. Diff)')
+                    plt.xlabel('Year')
+                    plt.ylabel(target_variable)
+                    plt.legend()
+                    plt.grid(True)
+                    plt.show()
+                else:
+                    print(f"{country} data after the third difference is still not stationary. Further analysis is needed.")
