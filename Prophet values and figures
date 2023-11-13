@@ -1,0 +1,36 @@
+import pandas as pd
+from prophet import Prophet
+import matplotlib.pyplot as plt
+
+# Create your dataframe! Google it :)
+veriler = pd.DataFrame({
+    "YOUR DATA HERE"
+})
+
+# Prophet forecasts and Figures for all countries
+for country in veriler.columns[1:]:
+    df = veriler[['year', country]]
+    df = df.rename(columns={'year': 'ds', country: 'y'})
+
+    model = Prophet()
+    model.fit(df)
+
+    future = model.make_future_dataframe(periods=14, freq='Y') #can be changed!
+    forecast = model.predict(future)
+
+    print(f"{country} Forecast:")
+    print(forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail(14)) #change tail with future periods
+    print("\n")
+
+    # Graph for predictions
+    plt.figure(figsize=(12, 6))
+    plt.plot(pd.to_datetime(veriler['year']), veriler[country], label='Actual Values', color='red', marker='o', linestyle='-', markersize=5)
+    plt.plot(forecast['ds'], forecast['yhat'], label='Prediction', color='blue', linestyle='--')
+    plt.fill_between(forecast['ds'], forecast['yhat_lower'], forecast['yhat_upper'], color='gray', alpha=0.2)
+    plt.xlabel('Year')
+    plt.ylabel('Value')
+    plt.title(f'{country} Predictions')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
