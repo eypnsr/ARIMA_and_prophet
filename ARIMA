@@ -3,7 +3,7 @@ import pandas as pd
 import statsmodels.api as sm
 import matplotlib.pyplot as plt
 import statsmodels.tsa.api as ts
-# Veriyi oku
+# Read the data
 data = pd.read_excel('Datapathway!') #change the pathway
 
 data['country'] = pd.Categorical(data['country'])
